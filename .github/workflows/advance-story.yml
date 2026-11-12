@@ -1,0 +1,80 @@
+name: Advance the adventure
+
+# Posts the next chapter from replies to the latest one, then commits
+# state/story.json so the following run remembers the thread.
+#
+# The schedule is commented out on purpose. Run start by hand, look at the
+# post, then uncomment the cron when you want this to continue on its own.
+# Recent search only sees about 7 days of replies, so a daily run is enough.
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "advance (next chapter) or start (opening chapter)"
+        required: true
+        default: advance
+        type: choice
+        options:
+          - advance
+          - start
+      dry_run:
+        description: "Print the chapter without posting or saving state"
+        required: true
+        type: boolean
+        default: false
+  # schedule:
+  #   - cron: "0 16 * * *"
+
+concurrency:
+  group: adventure-advance
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install .
+
+      - name: Run the adventure
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          ADVENTURE_ACCESS_TOKEN: ${{ secrets.ADVENTURE_ACCESS_TOKEN }}
+          ADVENTURE_ACCESS_TOKEN_SECRET: ${{ secrets.ADVENTURE_ACCESS_TOKEN_SECRET }}
+          ADVENTURE_USERNAME: ${{ secrets.ADVENTURE_USERNAME }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -eu
+          command="${{ github.event.inputs.command }}"
+          if [ -z "$command" ]; then
+            command=advance
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            adventure "$command" --dry-run
+          else
+            adventure "$command"
+          fi
+
+      - name: Commit story state
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name "furbyland-adventure"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state/story.json
+          if git diff --cached --quiet; then
+            echo "State file unchanged."
+          else
+            git commit -m "Update adventure story state"
+            git push
+          fi
