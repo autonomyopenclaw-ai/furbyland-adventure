@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "furbyland-adventure"
+version = "0.1.0"
+description = "Choose-your-own-adventure bot for X, using the official API v2 and OAuth 1.0a."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.32.0",
+  "requests-oauthlib>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+adventure = "furbyland_adventure.cli:console_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
